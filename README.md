@@ -75,7 +75,7 @@ There are **two supported methods**.
 
 ### Steps
 
-3. Download the **combined firmware binary** from this repository’s Releases:
+3. Download the **dongle_m_otbr_merged.bin** from this repository’s Releases:  
    https://github.com/Scoobler/esp-thread-br-sonoff-donglem/releases/tag/dongle-m-v1.0 
 5. Plug the Dongle-M into your computer via USB  
 6. Open the Sonoff Dongle Flasher:  
@@ -117,7 +117,7 @@ When flashing completes, the Dongle-M will reboot automatically.
 6. Flash the firmware:
 
    ```bash
-   idf.py erase-flash build flash
+   idf.py reconfigure erase-flash build flash
    ```
 
 ---
