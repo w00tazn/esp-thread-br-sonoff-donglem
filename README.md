@@ -75,16 +75,16 @@ There are **two supported methods**.
 
 ### Steps
 
-3. Download the **dongle_m_otbr_merged.bin** from this repository’s Releases:  
+1. Download the **dongle_m_otbr_merged.bin** from this repository’s Releases:  
    https://github.com/Scoobler/esp-thread-br-sonoff-donglem/releases/tag/dongle-m-v1.0 
-5. Plug the Dongle-M into your computer via USB  
-6. Open the Sonoff Dongle Flasher:  
+2. Plug the Dongle-M into your computer via USB  
+3. Open the Sonoff Dongle Flasher:  
    https://dongle.sonoff.tech/sonoff-dongle-flasher/  
-7. Click **Connect** and select the correct serial port for the Dongle-M  
+4. Click **Connect** and select the correct serial port for the Dongle-M  
    (port selection may be requested twice – this is normal)  
-8. Once the flasher detects the device, click **Select**  
-9. Choose **Customize**  
-10. Upload the downloaded combined firmware file  
+5. Once the flasher detects the device, click **Select**  
+6. Choose **Customize**  
+7. Upload the downloaded combined firmware file  
 
 When flashing completes, the Dongle-M will reboot automatically.
 
@@ -101,20 +101,20 @@ When flashing completes, the Dongle-M will reboot automatically.
 
 ### Steps
 
-3. Clone this repository:
+1. Clone this repository:
 
    ```bash
    git clone https://github.com/Scoobler/esp-thread-br-sonoff-donglem
    ```
 
-4. Open an **ESP-IDF command prompt**
-5. Change into the example directory:
+2. Open an **ESP-IDF command prompt**
+3. Change into the example directory:
 
    ```bash
    cd examples/basic_thread_border_router
    ```
 
-6. Flash the firmware:
+4. Flash the firmware:
 
    ```bash
    idf.py reconfigure erase-flash build flash
