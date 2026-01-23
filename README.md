@@ -22,6 +22,10 @@ Specifically based on the **Basic OpenThread Border Router example** provided by
 
 All credit for the underlying OpenThread / ESP-IDF implementation belongs to Espressif.
 
+⚠️ This repository is a fork,
+heavily modified for **Sonoff Dongle-M hardware**.
+It is not intended to be merged back upstream.
+
 ---
 
 ## Overview
