@@ -36,7 +36,7 @@ function frontend_click_copy_network_info_to_form(arg) {
   item = document.getElementById("form_tip");
   item.style.color = "blue";
   item.style.display = "block";
-  item.innerHTML = "Form update."
+  item.innerHTML = "Form update.";
 }
 
 function frontend_log_show(title, arg) {
@@ -68,13 +68,284 @@ function console_show_response_result(arg) {
   console.log("Result: ", arg.result);
   console.log("Message: ", arg.message);
 }
+
+/* --------------------------------------------------------------------
+                            Dataset helpers
+-------------------------------------------------------------------- */
+
+// /node/state uses PUT body: "enable" or "disable"
+// GET returns: "leader" / "detached" / "disabled" etc.
+const NODE_STATE_ENABLE  = "enable";
+const NODE_STATE_DISABLE = "disable";
+
+// --- Quiet refresh orchestration (debounced) ---
+var g_quiet_refresh_timer = null;
+
+function quiet_refresh_all(reason) {
+  // reason is optional; useful for console debugging
+  if (g_quiet_refresh_timer) clearTimeout(g_quiet_refresh_timer);
+
+  // small delay helps during the "rejoining" window, avoids immediate false negatives
+  g_quiet_refresh_timer = setTimeout(function() {
+    console.log("[quiet_refresh_all]", reason || "");
+
+    // 1) Properties (already quiet in your code)
+    http_server_get_thread_network_properties();
+
+    // 2) JSON active dataset -> populates form (quiet)
+    http_server_fetch_active_dataset({ retries: 10, intervalMs: 1500, quiet: true });
+
+    // 3) TLV dataset -> populates textarea (quiet)
+    http_server_fetch_active_dataset_tlv({ retries: 10, intervalMs: 1500, quiet: true });
+
+  }, 750);
+}
+
+// --- Missing helper used by Fetch Current Details ---
+function extract_dataset_from_response(arg) {
+  if (!arg) return null;
+
+  // Wrapped form: { error, result, message }
+  if (arg && typeof arg === "object" && arg.hasOwnProperty("result") && arg.result) {
+    return arg.result;
+  }
+
+  // Direct dataset object
+  if (arg && typeof arg === "object" && (arg.NetworkName || arg.MeshLocalPrefix || arg.PanId !== undefined)) {
+    return arg;
+  }
+
+  return null;
+}
+
+// --- TLV normalizer/validator ---
+function normalize_dataset_tlv(x) {
+  if (x === null || x === undefined) return null;
+
+  // If we got a JSON string (quoted), unquote it
+  if (typeof x === "string") {
+    let s = x.trim();
+
+    if (s.startsWith('"') && s.endsWith('"')) {
+      try { s = JSON.parse(s); } catch(e) { /* keep as-is */ }
+      s = String(s).trim();
+    }
+
+    // Remove whitespace/newlines
+    s = s.replace(/\s+/g, "").toLowerCase();
+
+    // Must be even-length hex
+    if (!s) return null;
+    if (!/^[0-9a-f]+$/.test(s)) return null;
+    if ((s.length % 2) !== 0) return null;
+
+    return s;
+  }
+
+  return null;
+}
+
+function set_textarea_value_by_id(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.value = value;
+}
+
+function get_textarea_value_by_id(id) {
+  const el = document.getElementById(id);
+  return el ? el.value : "";
+}
+
+function normalize_node_state(x) {
+  if (x === null || x === undefined) return null;
+
+  if (typeof x === "string") {
+    return x.replace(/^"+|"+$/g, "").trim().toLowerCase();
+  }
+  if (x && x.hasOwnProperty("result")) return normalize_node_state(x.result);
+  if (x && x.hasOwnProperty("message")) return normalize_node_state(x.message);
+  return null;
+}
+
+function set_form_enabled(enabled) {
+  // Form inputs
+  const form = document.getElementById("network_form");
+  if (form) {
+    const els = form.querySelectorAll("input, button, select, textarea");
+    els.forEach(e => {
+      // don't disable the fetch button if present
+      if (e.getAttribute("onclick") && e.getAttribute("onclick").includes("http_server_fetch_active_dataset")) {
+        return;
+      }
+      // optionally don't disable reform button in the loop
+      if (e.id === "btnFormNetwork") {
+        return;
+      }
+      e.disabled = !enabled;
+    });
+  }
+
+  // Explicit button IDs
+  const btnForm = document.getElementById("btnFormNetwork");
+  if (btnForm) btnForm.disabled = !enabled;
+
+  const btnUpdate = document.getElementById("btnUpdateNetwork");
+  if (btnUpdate) btnUpdate.disabled = !enabled;
+
+  const btnAdd = document.getElementById("btnAddPrefix");
+  if (btnAdd) btnAdd.disabled = !enabled;
+
+  const btnDel = document.getElementById("btnDelPrefix");
+  if (btnDel) btnDel.disabled = !enabled;
+}
+
+function padHex(n, width) {
+  let s = n.toString(16);
+  while (s.length < width) s = "0" + s;
+  return s;
+}
+
+function set_input_value_by_name(formId, name, value) {
+  const form = document.getElementById(formId);
+  if (!form) return false;
+
+  const el = form.querySelector(`[name="${CSS.escape(name)}"]`);
+  if (!el) return false;
+
+  el.value = value;
+  return true;
+}
+
+function set_checkbox_by_name(name, checked) {
+  const el = document.getElementsByName(name);
+  if (el && el.length > 0) el[0].checked = !!checked;
+}
+
+function parse_panid_to_decimal(panIdStr) {
+  if (panIdStr === undefined || panIdStr === null) return null;
+  const s = String(panIdStr).trim();
+  if (!s) return null;
+
+  if (s.toLowerCase().startsWith("0x")) {
+    const n = parseInt(s, 16);
+    return Number.isFinite(n) ? n : null;
+  }
+  const n = parseInt(s, 10);
+  return Number.isFinite(n) ? n : null;
+}
+
+function normalize_prefix_to_slash64(prefixStr) {
+  if (prefixStr === undefined || prefixStr === null) return null;
+  let s = String(prefixStr).trim();
+  if (!s) return null;
+
+  if (s.includes("/")) return s;
+  return s + "/64";
+}
+
+function populate_form_from_active_dataset(ds) {
+  if (!ds) return;
+
+  if (ds.NetworkName) set_input_value_by_name("network_form", "networkName", ds.NetworkName);
+  if (ds.NetworkKey) set_input_value_by_name("network_form", "networkKey", ds.NetworkKey);
+
+  if (typeof ds.PanId === "number") {
+    set_input_value_by_name("network_form", "panId", "0x" + padHex(ds.PanId, 4));
+  }
+
+  if (typeof ds.Channel === "number") set_input_value_by_name("network_form", "channel", ds.Channel);
+  if (ds.ExtPanId) set_input_value_by_name("network_form", "extPanId", ds.ExtPanId);
+
+  if (ds.MeshLocalPrefix) {
+    const prefixOnly = String(ds.MeshLocalPrefix).split("/")[0];
+    set_input_value_by_name("network_form", "prefix", prefixOnly);
+  }
+}
+
+function get_form_values_scoped() {
+  var root = $("#network_form").serializeJson();
+  if (root.hasOwnProperty("channel") && root.channel !== "") {
+    root.channel = parseInt(root.channel);
+  }
+  return root;
+}
+
+function build_patched_dataset(activeDs, formRoot) {
+  var ds = JSON.parse(JSON.stringify(activeDs || {}));
+
+  if (formRoot.networkName !== undefined && formRoot.networkName !== "")
+    ds.NetworkName = String(formRoot.networkName);
+
+  if (formRoot.networkKey !== undefined && formRoot.networkKey !== "")
+    ds.NetworkKey = String(formRoot.networkKey);
+
+  if (formRoot.extPanId !== undefined && formRoot.extPanId !== "")
+    ds.ExtPanId = String(formRoot.extPanId);
+
+  var panDec = parse_panid_to_decimal(formRoot.panId);
+  if (panDec !== null) ds.PanId = panDec;
+
+  if (formRoot.channel !== undefined && formRoot.channel !== "" && Number.isFinite(formRoot.channel))
+    ds.Channel = parseInt(formRoot.channel);
+
+  if (formRoot.prefix !== undefined && formRoot.prefix !== "") {
+    ds.MeshLocalPrefix = normalize_prefix_to_slash64(formRoot.prefix);
+  }
+
+  return ds;
+}
+
+function http_server_get_node_state(cb_ok, cb_err) {
+  $.ajax({
+    url: '/node/state',
+    type: 'GET',
+    dataType: 'text',
+    complete: function(xhr) {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        let txt = (xhr.responseText || "").trim();
+        let state = txt;
+
+        if (txt.startsWith('"') && txt.endsWith('"')) {
+          try { state = JSON.parse(txt); } catch (e) { /* keep as-is */ }
+        }
+
+        if (cb_ok) cb_ok(state, xhr);
+      } else {
+        if (cb_err) cb_err(xhr);
+      }
+    }
+  });
+}
+
+function http_server_put_node_state(stateStr, cb_ok, cb_err) {
+  $.ajax({
+    url: '/node/state',
+    type: 'PUT',
+    contentType: 'application/json;charset=utf-8',
+    dataType: 'text',
+    data: JSON.stringify(String(stateStr)),
+    complete: function(xhr) {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        if (cb_ok) cb_ok(xhr);
+      } else {
+        if (cb_err) cb_err(xhr);
+      }
+    }
+  });
+}
+
 /* --------------------------------------------------------------------
                             Discover
 -------------------------------------------------------------------- */
-$("document").ready(function() {
+$(document).ready(function() {
+  // Quiet refresh on load: properties + dataset + TLV
+  quiet_refresh_all("page-load");
+
+  // Disable Update (and other edits) until user explicitly fetches current dataset
+  set_form_enabled(false);
+
   $("div ul li a").click(function() {
-    $("div ul li a").removeClass("active"); // firstly ,remove all actives
-    $(this).addClass("active"); // choose 'li' to add option 'active'
+    $("div ul li a").removeClass("active");
+    $(this).addClass("active");
 
     var tabx = $(this).attr('id');
     tabx = tabx.slice(5, 6);
@@ -89,7 +360,7 @@ $("document").ready(function() {
 
 function fill_thread_available_network_table(data) {
   document.getElementById("available_networks_body").innerHTML =
-      "<tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>"; // clear table
+      "<tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>";
   var rows = '';
   var row_id = 1;
   if (data.error)
@@ -280,6 +551,9 @@ function http_server_upload_form_network_table() {
       log.error = arg.error;
       log.content = arg.message;
       frontend_log_show(title, log);
+
+      // After re-form completes, refresh everything quietly
+      quiet_refresh_all("after-reform-network");
     },
     error : function(arg) {
       log.error = "Error: ";
@@ -393,7 +667,7 @@ function http_server_get_thread_network_properties() {
       decode_thread_status_package(arg);
       log.error = arg.error;
       log.content = arg.message;
-      frontend_log_show(title, log);
+      //frontend_log_show(title, log);
     },
     error : function(arg) {
       log.error = "Error: ";
@@ -402,6 +676,501 @@ function http_server_get_thread_network_properties() {
       console.log(arg)
     }
   })
+}
+
+function sleep_ms(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function http_server_fetch_active_dataset(opts) {
+  opts = opts || {};
+  var retries = (opts.retries !== undefined) ? opts.retries : 6;
+  var intervalMs = (opts.intervalMs !== undefined) ? opts.intervalMs : 1500;
+  var quiet = (opts.quiet !== undefined) ? opts.quiet : false;
+
+  var title = "Active Dataset";
+  var log = {error : 0, content : ""};
+  var hint = document.getElementById("dataset_hint");
+
+  if (hint) hint.innerText = "Fetching active dataset...";
+
+  function try_once(attempt) {
+    $.ajax({
+      url : '/node/dataset/active',
+      async : true,
+      contentType : 'application/json;charset=utf-8',
+      type : 'GET',
+      dataType : "json",
+      data : "",
+      success : function(arg) {
+        var ds = extract_dataset_from_response(arg);
+        if (!ds) {
+          return handle_retry(attempt, "Got response but no dataset payload");
+        }
+
+        populate_form_from_active_dataset(ds);
+        set_form_enabled(true);
+
+        if (hint) hint.innerText = "Loaded current dataset. You can now edit safely.";
+
+        if (!quiet) {
+          log.error = 0;
+          log.content = "Loaded active dataset";
+          // optional: frontend_log_show(title, log);
+        }
+      },
+      error : function(err) {
+        handle_retry(attempt, err);
+      }
+    });
+  }
+
+  function handle_retry(attempt, err) {
+    if (attempt >= retries) {
+      if (hint) hint.innerText = "Failed to fetch dataset. Thread may still be restarting. Try again shortly.";
+
+      log.error = 1;
+      log.content = "Failed to fetch active dataset";
+      frontend_log_show(title, log);
+      console.log("fetch_active_dataset failed:", err);
+      return;
+    }
+
+    if (hint) hint.innerText = "Thread is rejoining… retrying (" + (attempt + 1) + "/" + retries + ")";
+
+    http_server_get_node_state(function(stateStr) {
+      var st = normalize_node_state(stateStr);
+
+      if (hint) {
+        if (!st) {
+          hint.innerText = "Thread status unknown… retrying (" + (attempt + 1) + "/" + retries + ")";
+        } else if (st === "disabled") {
+          hint.innerText = "Thread is disabled/restarting… retrying (" + (attempt + 1) + "/" + retries + ")";
+        } else {
+          hint.innerText = "Thread state: " + st + "… dataset not ready yet, retrying (" + (attempt + 1) + "/" + retries + ")";
+        }
+      }
+
+      sleep_ms(intervalMs).then(function() { try_once(attempt + 1); });
+
+    }, function(_errState) {
+      sleep_ms(intervalMs).then(function() { try_once(attempt + 1); });
+    });
+  }
+
+  try_once(0);
+}
+
+function http_server_fetch_active_dataset_tlv(opts) {
+  opts = opts || {};
+  var retries    = (opts.retries    !== undefined) ? opts.retries    : 6;
+  var intervalMs = (opts.intervalMs !== undefined) ? opts.intervalMs : 1500;
+  var quiet      = (opts.quiet      !== undefined) ? opts.quiet      : false;
+
+  var title = "Active Dataset TLV";
+  var log = {error: 0, content: ""};
+
+  var tip = document.getElementById("tlv_tip");
+  var hint = document.getElementById("dataset_hint");
+
+  function setTip(msg, ok) {
+    if (tip) {
+      tip.style.display = "block";
+      tip.style.color = ok ? "green" : "#b02a37";
+      tip.innerText = msg;
+    } else if (hint) {
+      hint.innerText = msg;
+    }
+  }
+
+  setTip("Fetching active dataset TLV...", true);
+
+  function try_once(attempt) {
+    $.ajax({
+      url: '/node/dataset/active',
+      type: 'GET',
+      dataType: 'text',
+      headers: { 'Accept': 'text/plain' },
+      success: function(respText) {
+        var tlv = normalize_dataset_tlv(respText);
+        if (!tlv) return handle_retry(attempt, "Invalid/empty TLV payload");
+
+        set_textarea_value_by_id("activeDatasetTlv", tlv);
+
+        setTip("TLV loaded.", true);
+
+        if (!quiet) {
+          log.error = 0;
+          log.content = "Loaded active dataset TLV";
+          // optional popup:
+          // frontend_log_show(title, log);
+        }
+      },
+      error: function(err) {
+        handle_retry(attempt, err);
+      }
+    });
+  }
+
+  function handle_retry(attempt, err) {
+    if (attempt >= retries) {
+      setTip("Failed to fetch TLV (Thread may be rejoining). Try again shortly.", false);
+      log.error = 1;
+      log.content = "Failed to fetch active dataset TLV";
+      if (!quiet) frontend_log_show(title, log);
+      console.log("fetch_active_dataset_tlv failed:", err);
+      return;
+    }
+
+    http_server_get_node_state(function(stateStr) {
+      var st = normalize_node_state(stateStr) || "unknown";
+      setTip("Thread state: " + st + "… retrying (" + (attempt + 1) + "/" + retries + ")", true);
+      sleep_ms(intervalMs).then(function(){ try_once(attempt + 1); });
+    }, function() {
+      setTip("Retrying (" + (attempt + 1) + "/" + retries + ")", true);
+      sleep_ms(intervalMs).then(function(){ try_once(attempt + 1); });
+    });
+  }
+
+  try_once(0);
+}
+
+/*
+ * UPDATE ACTIVE DATASET (in-place)
+ */
+
+async function wait_for_node_state_not_disabled(timeoutMs = 30000, intervalMs = 1000) {
+  const start = Date.now();
+
+  while (Date.now() - start < timeoutMs) {
+    const state = await new Promise((resolve, reject) => {
+      http_server_get_node_state(
+        (s) => resolve(normalize_node_state(s)),
+        (xhr) => reject(xhr)
+      );
+    });
+
+    if (state && state !== "disabled") return state;
+
+    await sleep_ms(intervalMs);
+  }
+
+  return null;
+}
+
+function http_server_update_active_dataset() {
+  var title = "Update Active Dataset";
+  var log = {error : 0, content : ""};
+  var hint = document.getElementById("dataset_hint");
+  if (hint) hint.innerText = "Updating active dataset...";
+
+  var formRoot = get_form_values_scoped();
+
+  $.ajax({
+    url : '/node/dataset/active',
+    async : true,
+    contentType : 'application/json;charset=utf-8',
+    type : 'GET',
+    dataType : "json",
+    data : "",
+    success : function(argDs) {
+      var activeDs = argDs;
+      if (argDs && argDs.hasOwnProperty("result")) activeDs = argDs.result;
+
+      var updatedDs = build_patched_dataset(activeDs, formRoot);
+
+      http_server_get_node_state(function(stateStr) {
+        var curState = normalize_node_state(stateStr);
+        if (!curState) curState = "unknown";
+
+        var mustDisable = (curState !== "disabled");
+
+        async function finish_success() {
+          if (hint) hint.innerText = "Dataset updated. Waiting for Thread to come back...";
+
+          const state = await wait_for_node_state_not_disabled(45000, 1500);
+
+          if (!state) {
+            if (hint) hint.innerText = "Dataset updated, but Thread is still restarting. Try refresh in a moment.";
+            log.error = 0;
+            log.content = "Dataset updated (Thread still restarting)";
+            frontend_log_show(title, log);
+            return;
+          }
+
+          if (hint) hint.innerText = "Thread is back (" + state + "). Refreshing details...";
+
+          // One call does Properties + Dataset + TLV
+          quiet_refresh_all("after-update-dataset");
+
+          log.error = 0;
+          log.content = "Active dataset updated";
+          frontend_log_show(title, log);
+        }
+
+        function put_dataset_then_maybe_enable() {
+          $.ajax({
+            url : '/node/dataset/active',
+            async : true,
+            contentType : 'application/json;charset=utf-8',
+            type : 'PUT',
+            dataType : "text",
+            data : JSON.stringify(updatedDs),
+
+            complete: function(xhr) {
+              const ok = (xhr.status >= 200 && xhr.status < 300);
+
+              if (!ok) {
+                if (hint) hint.innerText = "Failed to PUT active dataset.";
+                log.error = 1;
+                log.content = "Failed to update active dataset";
+                frontend_log_show(title, log);
+                console.log("PUT /node/dataset/active failed:", xhr.status, xhr.responseText);
+
+                if (mustDisable) {
+                  http_server_put_node_state(NODE_STATE_ENABLE, function(){}, function(){});
+                }
+                return;
+              }
+
+              if (mustDisable) {
+                if (hint) hint.innerText = "Dataset applied. Re-enabling Thread (may take a while)...";
+
+                http_server_put_node_state(
+                  NODE_STATE_ENABLE,
+                  function(_ok) { finish_success(); },
+                  function(errEnable) {
+                    console.log("Enable request error (non-fatal):", errEnable);
+                    if (hint) hint.innerText = "Dataset updated. Thread is rejoining (enable response not confirmed)...";
+                    finish_success();
+                  }
+                );
+              } else {
+                finish_success();
+              }
+            }
+          });
+        }
+
+        if (mustDisable) {
+          if (hint) hint.innerText = "Disabling Thread to apply dataset...";
+
+          http_server_put_node_state(
+            NODE_STATE_DISABLE,
+            function(_ok) { put_dataset_then_maybe_enable(); },
+            function(errDisable) {
+              if (hint) hint.innerText = "Failed to disable Thread (required to update active dataset).";
+              log.error = 1;
+              log.content = "Failed to disable Thread";
+              frontend_log_show(title, log);
+              console.log(errDisable);
+            }
+          );
+        } else {
+          put_dataset_then_maybe_enable();
+        }
+
+      }, function(errState) {
+        if (hint) hint.innerText = "Failed to read node state.";
+        log.error = 1;
+        log.content = "Failed to read node state";
+        frontend_log_show(title, log);
+        console.log(errState);
+      });
+
+    },
+    error : function(errDs) {
+      if (hint) hint.innerText = "Failed to fetch active dataset.";
+      log.error = 1;
+      log.content = "Failed to fetch active dataset";
+      frontend_log_show(title, log);
+      console.log(errDs);
+    }
+  });
+}
+
+function http_server_update_active_dataset_tlv() {
+  var title = "Update Active Dataset TLV";
+  var log = { error: 0, content: "" };
+
+  var tlvTip = document.getElementById("tlv_tip");
+  var hint = tlvTip || document.getElementById("dataset_hint");
+
+  var raw = (document.getElementById("activeDatasetTlv") || {}).value || "";
+  var tlv = normalize_dataset_tlv(raw);
+
+  if (!tlv) {
+    log.error = 1;
+    log.content = "Invalid TLV";
+    frontend_log_show(title, log);
+    if (hint) {
+      hint.style.display = "block";
+      hint.style.color = "red";
+      hint.innerText = "Invalid TLV (must be hex, even length).";
+    }
+    return;
+  }
+
+  if (hint) {
+    hint.style.display = "block";
+    hint.style.color = "green";
+    hint.innerText = "Updating TLV…";
+  }
+
+  http_server_get_node_state(function(stateStr) {
+    var curState = normalize_node_state(stateStr) || "unknown";
+    var mustDisable = (curState !== "disabled");
+
+    function put_tlv_then_maybe_enable() {
+
+      function finish_ok_flow() {
+        async function finish_success() {
+          if (hint) hint.innerText = "TLV applied. Waiting for Thread to come back...";
+
+          const state = await wait_for_node_state_not_disabled(45000, 1500);
+
+          if (!state) {
+            if (hint) hint.innerText = "TLV applied, but Thread is still restarting. Refresh in a moment.";
+            log.error = 0;
+            log.content = "TLV updated (Thread still restarting)";
+            frontend_log_show(title, log);
+            return;
+          }
+
+          if (hint) hint.innerText = "Thread is back (" + state + "). Refreshing details...";
+
+          // One call does Properties + Dataset + TLV
+          quiet_refresh_all("after-update-tlv");
+
+          log.error = 0;
+          log.content = "TLV updated";
+          frontend_log_show(title, log);
+        }
+
+        if (mustDisable) {
+          if (hint) hint.innerText = "TLV applied. Re-enabling Thread (may take a while)...";
+
+          http_server_put_node_state(
+            NODE_STATE_ENABLE,
+            function() { finish_success(); },
+            function(errEnable) {
+              console.log("Enable request error (non-fatal):", errEnable);
+              if (hint) hint.innerText = "TLV updated. Thread is rejoining (enable response not confirmed)...";
+              finish_success();
+            }
+          );
+        } else {
+          finish_success();
+        }
+      }
+
+      $.ajax({
+        url: '/node/dataset/active',
+        type: 'PUT',
+        dataType: 'text',
+        contentType: 'text/plain',
+        processData: false,
+        data: tlv,
+        beforeSend: function(xhr) {
+          xhr.setRequestHeader("Accept", "text/plain");
+          xhr.setRequestHeader("Content-Type", "text/plain");
+        },
+        complete: function(xhr) {
+          var ok = (xhr.status >= 200 && xhr.status < 300);
+          if (ok) {
+            finish_ok_flow();
+            return;
+          }
+
+          console.log("PUT TLV failed:", xhr.status, xhr.responseText);
+
+          if (xhr.status === 400) {
+            $.ajax({
+              url: '/node/dataset/active',
+              type: 'PUT',
+              dataType: 'text',
+              contentType: 'application/json;charset=utf-8',
+              processData: false,
+              data: JSON.stringify(tlv),
+              beforeSend: function(x2) {
+                x2.setRequestHeader("Accept", "text/plain");
+              },
+              complete: function(x2) {
+                var ok2 = (x2.status >= 200 && x2.status < 300);
+                if (ok2) {
+                  finish_ok_flow();
+                  return;
+                }
+
+                var code2 = (x2 && x2.status) ? x2.status : "?";
+                if (hint) {
+                  hint.style.display = "block";
+                  hint.style.color = "red";
+                  hint.innerText = "Failed to PUT TLV (HTTP " + code2 + ")";
+                }
+                log.error = 1;
+                log.content = "Failed to PUT TLV (HTTP " + code2 + ")";
+                frontend_log_show(title, log);
+                console.log("PUT TLV fallback failed:", x2.status, x2.responseText);
+
+                if (mustDisable) {
+                  http_server_put_node_state(NODE_STATE_ENABLE, function(){}, function(){});
+                }
+              }
+            });
+
+            return;
+          }
+
+          var code = (xhr && xhr.status) ? xhr.status : "?";
+          if (hint) {
+            hint.style.display = "block";
+            hint.style.color = "red";
+            hint.innerText = "Failed to PUT TLV (HTTP " + code + ")";
+          }
+          log.error = 1;
+          log.content = "Failed to PUT TLV (HTTP " + code + ")";
+          frontend_log_show(title, log);
+
+          if (mustDisable) {
+            http_server_put_node_state(NODE_STATE_ENABLE, function(){}, function(){});
+          }
+        }
+      });
+    }
+
+    if (mustDisable) {
+      if (hint) hint.innerText = "Disabling Thread to apply TLV...";
+      http_server_put_node_state(
+        NODE_STATE_DISABLE,
+        function() { put_tlv_then_maybe_enable(); },
+        function(errDisable) {
+          if (hint) {
+            hint.style.display = "block";
+            hint.style.color = "red";
+            hint.innerText = "Failed to disable Thread (required before TLV update).";
+          }
+          log.error = 1;
+          log.content = "Failed to disable Thread";
+          frontend_log_show(title, log);
+          console.log(errDisable);
+        }
+      );
+    } else {
+      put_tlv_then_maybe_enable();
+    }
+
+  }, function(errState) {
+    if (hint) {
+      hint.style.display = "block";
+      hint.style.color = "red";
+      hint.innerText = "Failed to read node state.";
+    }
+    log.error = 1;
+    log.content = "Failed to read node state";
+    frontend_log_show(title, log);
+    console.log(errState);
+  });
 }
 
 /* --------------------------------------------------------------------
@@ -599,7 +1368,7 @@ function handle_thread_networks_topology_package(node, diag) {
     if ('ChildTable' in diagOfNode) {
 
       rloc = parseInt(diagOfNode['Rloc16'], 16).toString(16);
-      nodeMap[rloc] = count; // give id to every node
+      nodeMap[rloc] = count;
 
       if (diagOfNode['RouteId'] == diagOfNode['LeaderData']['LeaderRouterId']) {
         diagOfNode['Role'] = 'Leader';
@@ -623,14 +1392,12 @@ function handle_thread_networks_topology_package(node, diag) {
   document.getElementById("topology_router_number").innerHTML =
       count.toString();
 
-  src = 0; // respent current router id, in order.
+  src = 0;
   for (diagOfNode of diag_package) {
     if ('ChildTable' in diagOfNode) {
-      // Link bewtwen routers
       for (linkNode of diagOfNode['Route']['RouteData']) {
         rloc = (parseInt(linkNode['RouteId'], 16) << 10)
-                   .toString(16); // if diagOfNode has 'ChildTable' member,
-                                  // diagOfNode is router
+                   .toString(16);
         if (rloc in nodeMap) {
           dist = nodeMap[rloc];
           if (src < dist) {
@@ -648,7 +1415,6 @@ function handle_thread_networks_topology_package(node, diag) {
         }
       }
 
-      // Link between router and child
       for (childInfo of diagOfNode['ChildTable']) {
         child = {};
         rlocOfParent = parseInt(diagOfNode['Rloc16'], 16).toString(16);
@@ -955,3 +1721,9 @@ function draw_thread_topology_graph(arg) {
   topology.update_detail_list();
   topology.graph_isReady = true;
 }
+$(document).on('click', '#mobileNav a', function () {
+    // Only collapse if the toggle button is visible (i.e. we're in mobile mode)
+    if ($('.navbar-toggle:visible').length) {
+      $('#mobileNav').collapse('hide');
+    }
+  });

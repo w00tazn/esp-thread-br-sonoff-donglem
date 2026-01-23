@@ -5,43 +5,200 @@
   <meta charset="utf-8">
   <meta content="width=device-width, initial-scale=1.0" name="viewport">
   <title>ESP32-OpenThread-AIOT</title>
+
   <link href="/static/style.css" type="text/css" rel="stylesheet">
   <script src="/static/restful.js" defer="true"></script>
   <link href="/favicon.ico" rel="icon">
-  
-  <!-- <link href="/static/bootstrap.min.css" rel="stylesheet"> -->
-  <!--  <script src="/static/jquery.min.js"></script> -->
+
+  <!-- Bootstrap 3 -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css" rel="stylesheet">
   <script src="https://code.jquery.com/jquery-1.10.2.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
   <script src="https://d3js.org/d3.v3.min.js"></script>
   <style>
+    /* ===== Mobile-first fixes (do not rename ids/names; CSS only) ===== */
+
+    /* 1) Remove fixed width container that breaks phones */
     .container {
-      width: 1500px;
+      width: auto !important;
+      max-width: 1500px; /* keeps your desktop feel without forcing it */
+    }
+
+    /* 2) Make header/nav usable and wrap nicely */
+    #header .logo h1 {
+      margin: 10px 0;
+      font-size: 24px;
+      line-height: 1.2;
+      word-break: break-word;
+    }
+
+    /* Make navbar list items line up nicely in Bootstrap 3 collapse */
+    #navbar.navbar {
+      margin: 0;
+      border: 0;
+      min-height: 0;
+    }
+
+    /* Ensure nav links are tappable */
+    #navbar .nav > li > a,
+    #navbar ul li a {
+      padding: 12px 14px;
+      display: block;
+    }
+
+    /* 3) Responsive tables: wrap in horizontal scroll on small screens */
+    .table-scroll {
+      width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      border: 1px solid #eee;
+      border-radius: 6px;
+    }
+    .table-scroll table {
+      min-width: 900px; /* prevents squashing columns into unreadable mess */
+    }
+
+    /* 4) Buttons: better mobile tap targets */
+    button, .btn, .btn-submit, .dialog-button {
+      min-height: 40px;
+    }
+
+    /* 5) Forms/dialogs: fit on phone screens */
+    .dialog {
+      padding: 12px !important;
+    }
+    .dialog-content {
+      width: 95% !important;
+      max-width: 520px;
+      box-sizing: border-box;
+    }
+    #log_window .dialog-content {
+      width: 95% !important;
+      max-width: 420px;
+    }
+
+    /* 6) Fix the SCAN button positioning (desktop & mobile) */
+    .scan-row {
+      margin-top: 10px;
+      text-align: right;
+    }
+    .scan-row .btn-submit {
+      margin: 0 !important;
+    }
+
+    /* 7) Reduce huge top spacing on small screens */
+    .default-margin {
+      margin-top: 20px !important;
+      margin-bottom: 20px !important;
+    }
+
+    /* 8) Keep long values from blowing layout */
+    .tab-elem-value, p, h4, span {
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+
+    /* 9) Status pills wrap on mobile */
+    .nav-pills > li {
+      float: none;
+      display: inline-block;
+      margin-bottom: 6px;
+    }
+    .nav.nav-pills {
+      white-space: normal;
+    }
+
+    /* 10) Make the topology canvas not overflow */
+    #tolology_canvas {
+      max-width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* ===== Small-screen overrides ===== */
+    @media (max-width: 767px) {
+
+      /* Header spacing */
+      #header .container-fluid {
+        padding-left: 10px;
+        padding-right: 10px;
+      }
+
+      /* Make the intro paragraph readable */
+      .main-section .text-left {
+        margin-top: 18px !important;
+      }
+      .main-section p {
+        font-size: 15px;
+        line-height: 1.5;
+      }
+
+      /* Scan button full width on phones */
+      .scan-row {
+        text-align: left;
+      }
+      .scan-row .btn-submit {
+        width: 100%;
+      }
+
+      /* Form buttons stack nicely */
+      #Form .row .col-md-3,
+      #Settings .row .col-md-1,
+      #DatasetTLV .row .col-md-3 {
+        width: 100% !important;
+        margin-bottom: 10px;
+      }
+      #Form .row .btn,
+      #Settings .row .btn,
+      #DatasetTLV .row .btn {
+        width: 100%;
+      }
+
+      /* Status columns become stacked */
+      #Status .col-lg-3, #Status .col-lg-2, #Status .col-lg-1 {
+        width: 100%;
+      }
+
+      /* Footer columns stack cleanly */
+      .footer .col-lg-3, .footer .col-lg-2, .footer .col-lg-4 {
+        width: 100%;
+      }
     }
   </style>
 </head>
-
 <body>
   <header id="header" class="header fixed-top sticked" data-scrollto-offset="0">
     <div class="container-fluid">
       <div class="row">
-        <div class="col-md-4">
+        <div class="col-xs-9 col-md-4">
           <a href="https://www.espressif.com/en" class="logo">
             <h1>ESPRESSIF-<span style="color: #0ea2bd">OpenThread.</span></h1>
           </a>
         </div>
-        <div class="col-md-6 menu">
-          <nav id="navbar" class="navbar">
-            <ul>
-              <li class="nav-link"><a href="index.html#Main-Section"><span>Home</span></a>
-              </li>
-              <li><a class="nav-link" href="index.html#Scan">Scan</a></li>
-              <li><a class="nav-link" href="index.html#Form">Form</a></li>
-              <li><a class="nav-link" href="index.html#Settings">Settings</a></li>
-              <li><a class="nav-link" href="index.html#Status">Status</a></li>
-              <li><a class="nav-link" href="index.html#Topology">Topology</a></li>
-              <li><a class="nav-link" href="index.html#Contact">Contact</a></li>
-            </ul>
+        <div class="col-xs-3 col-md-6 menu">
+          <nav id="navbar" class="navbar navbar-default" role="navigation">
+            <div class="navbar-header">
+              <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#mobileNav"
+                aria-expanded="false" aria-controls="mobileNav">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+              </button>
+            </div>
+
+            <div class="collapse navbar-collapse" id="mobileNav">
+              <ul class="nav navbar-nav">
+                <li class="nav-link"><a href="index.html#Main-Section"><span>Home</span></a></li>
+                <li><a class="nav-link" href="index.html#Scan">Scan</a></li>
+                <li><a class="nav-link" href="index.html#Form">Form</a></li>
+                <li><a class="nav-link" href="index.html#Settings">Settings</a></li>
+                <li><a class="nav-link" href="index.html#Status">Status</a></li>
+                <li><a class="nav-link" href="index.html#Topology">Topology</a></li>
+                <li><a class="nav-link" href="index.html#Contact">Contact</a></li>
+              </ul>
+            </div>
           </nav>
         </div>
         <div class="col-md-2"></div>
@@ -102,76 +259,74 @@
           <p>Here, you can scan for available Thread networks, and choose to join one of them.</p>
         </div>
         <div class="row">
-          <table id="available_networks_table" class="pure-table pure-table-horizontal">
-            <caption>Available Thread Networks</caption>
-            <thead>
-              <tr>
-                <th style="width: 100px;">No.</th>
-                <th>Network Name</th>
-                <th>Extended PAN ID</th>
-                <th>PAN ID</th>
-                <th>Mac Address</th>
-                <th style="width: 120px;">Channel</th>
-                <th style="width: 120px;">dBm</th>
-                <th style="width: 120px;">LQI</th>
-                <th style="width: 150px;">Action</th>
-              </tr>
-            </thead>
-            <tbody id="available_networks_body">
-              <tr>
-                <td></td>
-                <td></td>
-                <td></td>
-                <td></td>
-                <td></td>
-                <td></td>
-                <td></td>
-                <td></td>
-                <td><button class="btn-submit" onclick="frontend_show_join_network_window(this)">Join</button></td>
-              </tr>
-            </tbody>
-          </table>
+          <div class="table-scroll">
+            <table id="available_networks_table" class="pure-table pure-table-horizontal">
+              <caption>Available Thread Networks</caption>
+              <thead>
+                <tr>
+                  <th style="width: 100px;">No.</th>
+                  <th>Network Name</th>
+                  <th>Extended PAN ID</th>
+                  <th>PAN ID</th>
+                  <th>Mac Address</th>
+                  <th style="width: 120px;">Channel</th>
+                  <th style="width: 120px;">dBm</th>
+                  <th style="width: 120px;">LQI</th>
+                  <th style="width: 150px;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="available_networks_body">
+                <tr>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td><button class="btn-submit" onclick="frontend_show_join_network_window(this)">Join</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
           <div id="join_window" class="dialog">
             <div class="dialog-content">
               <h2>Join Information</h2>
-                <form id = "join_network_table" onsubmit="return false">
-                  <div>
-                    <label for="credentialType">Credential Type:</label>
-                    <select id="credentialType" name="credentialType" onclick="frontend_join_type_select(this)">
-                      <option value="networkKeyType">Network Key</option>
-                      <option value="pskdType">Thread PSKD</option>
-                    </select>
-                  </div>
-                  <div id="join_networkKey" style="margin-top: 40px;">
-                    <label for="networkKey">Network Key:</label>
-					          <input type="text" name="networkKey" value="00112233445566778899aabbccddeeff">
-                  </div>
-                  <div id="join_pskd" style="margin-top: 40px; display: none;">
-                      <label for="pskd">Pskd:</label>
-					            <input type="text"  name="pskd" placeholder="Pskd">
-                  </div>
-                  <div id = "join_prefix">
-                      <label for="prefix">Prefix:</label>
-                      <input type="text" name="prefix" value="fd11:22::">
-                  </div>
-
-                  <div id = "join_defaultRoute">
-                    <label for="defaultRoute">Default Route: </label>
-                    <input type="checkbox" name="defaultRoute" checked>
-                  </div>
-                                  
-                  <button type = "submit" class="dialog-button" onclick="frontend_submit_join_network(this)">Submit</button>
-                  <button type = "submit" class="dialog-button" onclick="frontend_cancel_join_network(this)">Cancel</button>
-                  <br/>
-                  <br/>
-                </form>
+              <form id="join_network_table" onsubmit="return false">
+                <div>
+                  <label for="credentialType">Credential Type:</label>
+                  <select id="credentialType" name="credentialType" onclick="frontend_join_type_select(this)">
+                    <option value="networkKeyType">Network Key</option>
+                    <option value="pskdType">Thread PSKD</option>
+                  </select>
+                </div>
+                <div id="join_networkKey" style="margin-top: 40px;">
+                  <label for="networkKey">Network Key:</label>
+                  <input type="text" name="networkKey" value="00112233445566778899aabbccddeeff">
+                </div>
+                <div id="join_pskd" style="margin-top: 40px; display: none;">
+                  <label for="pskd">Pskd:</label>
+                  <input type="text" name="pskd" placeholder="Pskd">
+                </div>
+                <div id="join_prefix">
+                  <label for="prefix">Prefix:</label>
+                  <input type="text" name="prefix" value="fd11:22::">
+                </div>
+                <div id="join_defaultRoute">
+                  <label for="defaultRoute">Default Route: </label>
+                  <input type="checkbox" name="defaultRoute" checked>
+                </div>
+                <button type="submit" class="dialog-button" onclick="frontend_submit_join_network(this)">Submit</button>
+                <button type="submit" class="dialog-button" onclick="frontend_cancel_join_network(this)">Cancel</button>
+                <br />
+                <br />
+              </form>
             </div>
           </div>
         </div>
-          <div class="row">
-            <button class="btn-submit" style="margin-top: 1%; margin-left: 1275px;"
-              onclick="http_server_scan_thread_network()">SCAN</button>
-          </div>         
+        <div class="row scan-row">
+          <button class="btn-submit" onclick="http_server_scan_thread_network()">SCAN</button>
         </div>
       </div>
     </section>
@@ -194,7 +349,7 @@
               </div>
             </div>
             <p>note: the table which marks * must be filled.</p>
-            <hr/>
+            <hr />
             <form action="" enctype='application/json' method="post" id="network_form">
               <div class="row">
                 <div class="col-md-6 form-group">
@@ -224,7 +379,6 @@
                   <input name="channel" type="number" class="form-control" value="15">
                 </div>
               </div>
-
               <div id="form-more-param" style="display:none">
                 <div class="row">
                   <div class="col-md-6 form-group">
@@ -253,20 +407,30 @@
                   </div>
                 </div>
               </div>
-              <div class="row" style="float: right;">
-                <a id="form-more-tip" style="font-size:16px" onclick="frontend_click_for_more_form_param()">for more &#x21B5;</a>
-              </div>
+              <div class="row form-more-row">
+			    <a id="form-more-tip" style="font-size:16px" onclick="frontend_click_for_more_form_param()">for more &#x21B5;</a>
+			  </div>
               <div class="row">
-                <div class="col-md-2">
-                    <button type="button" class="btn btn-primary" onclick="http_server_upload_form_network_table()">Form Network</button>
+                <div class="col-md-3">
+                  <button type="button" class="btn btn-default" onclick="http_server_fetch_active_dataset()">Fetch Current Details</button>
+                </div>
+                <div class="col-md-3">
+                  <button type="button" class="btn btn-primary" id="btnUpdateNetwork" onclick="http_server_update_active_dataset()" disabled>Update Network Details</button>
+                </div>
+                <div class="col-md-3">
+                  <button type="button" class="btn btn-primary" id="btnFormNetwork" onclick="http_server_upload_form_network_table()" disabled>Re-Form Network</button>
                 </div>
               </div>
+              <p id="dataset_hint" style="margin-top:10px;color:#666;">
+                Tip: Click <b>Fetch current details</b> first so you don’t overwrite settings with defaults.
+			</p>
+			
             </form>
           </div><!-- End blog comments -->
         </div>
       </div>
     </section>
-    <section id="Settings" class="sub-section">
+	<section id="Settings" class="sub-section">
       <div class="container">
         <div class="section-header default-margin">
           <h2>Thread Network <span style="color: #0ea2bd">Settings</span></h2>
@@ -300,10 +464,10 @@
               </div>
               <div class="row">
                 <div class="col-md-1">
-                    <button type="button" class="btn btn-primary" onclick="http_server_add_prefix_to_thread_network()">Add</button>
+                    <button type="button" class="btn btn-primary" id="btnAddPrefix" onclick="http_server_add_prefix_to_thread_network()" disabled>Add</button>
                 </div>
                 <div class="col-md-1">
-                    <button type="button" class="btn btn-primary" onclick="http_server_delete_prefix_from_thread_network()">Delete</button>
+                    <button type="button" class="btn btn-primary" id="btnDelPrefix" onclick="http_server_delete_prefix_from_thread_network()" disabled>Delete</button>
                 </div>
               </div>
             </form>
@@ -311,6 +475,70 @@
         </div>
       </div>
     </section>
+	<section id="DatasetTLV" class="sub-section">
+	  <div class="container">
+		<div class="section-header default-margin">
+		  <h2>Thread Network <span style="color: #0ea2bd">Dataset TLV</span></h2>
+		  <p>
+			Fetch and restore the Active Operational Dataset as a TLV string. Useful for backup/restore or moving a network to another device.
+		  </p>
+		</div>
+
+		<div class="part">
+		  <div class="submit-form">
+			<div class="row">
+			  <div class="col-md-8">
+				<h4>Active Dataset (TLV)</h4>
+			  </div>
+			  <div class="col-md-4">
+				<h4 id="tlv_tip"
+				  style="color: green; font-weight: 200; font-family: 'Times New Roman', Times, serif; display: none;">
+				  completed...</h4>
+			  </div>
+			</div>
+
+			<hr/>
+
+			<form action="" enctype="text/plain" method="post" id="dataset_tlv_form">
+			  <div class="row">
+				<div class="col-md-12 form-group">
+				  <p style="font-size: 16px; font-weight:700;">Active Dataset TLV</p>
+				  <textarea name="activeDatasetTlv"
+							id="activeDatasetTlv"
+							class="form-control"
+							rows="5"
+							placeholder="Paste TLV here (hex string)..."></textarea>
+				  <p style="margin-top: 8px; font-size: 13px; color: #b02a37;">
+					⚠ Uploading a TLV will overwrite the device’s current active dataset. This may disrupt your Thread network.
+				  </p>
+				</div>
+			  </div>
+
+			  <div class="row">
+				<div class="col-md-3">
+				  <button type="button"
+						  class="btn btn-default"
+						  onclick="http_server_fetch_active_dataset_tlv({ quiet: false })">
+					Fetch Current TLV
+				  </button>
+				</div>
+
+				<div class="col-md-3">
+				  <button type="button"
+						  class="btn btn-primary"
+						  id="btnUploadTLV"
+						  onclick="http_server_update_active_dataset_tlv()">
+					Upload TLV
+				  </button>
+				</div>
+			  </div>
+			</form>
+
+		  </div><!-- End submit-form -->
+		</div>
+	  </div>
+	</section>
+
     <section id="Status" class="sub-section">
       <div class="container">
         <div class="section-header default-margin">
