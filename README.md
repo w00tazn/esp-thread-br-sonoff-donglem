@@ -252,7 +252,6 @@ Additional future work would include:
 - Validation testing across a wider range of network conditions
 - Long-term stability and reliability testing
 - Real-world usability testing with Home Assistant and mixed Thread device ecosystems
-- Improve the WebUI for use on mobile browsers - currently this is very poor!
 - General code cleanup and documentation improvements
 
 These steps are **outside the scope of this proof of concept**, but are listed here to provide a possible direction for anyone wishing to take this further.
