@@ -75,15 +75,16 @@ There are **two supported methods**.
 
 ### Steps
 
-3. Download the **combined firmware binary** from this repository’s Releases  
-4. Plug the Dongle-M into your computer via USB  
-5. Open the Sonoff Dongle Flasher:  
+3. Download the **combined firmware binary** from this repository’s Releases:
+   https://github.com/Scoobler/esp-thread-br-sonoff-donglem/releases/tag/dongle-m-v1.0 
+5. Plug the Dongle-M into your computer via USB  
+6. Open the Sonoff Dongle Flasher:  
    https://dongle.sonoff.tech/sonoff-dongle-flasher/  
-6. Click **Connect** and select the correct serial port for the Dongle-M  
+7. Click **Connect** and select the correct serial port for the Dongle-M  
    (port selection may be requested twice – this is normal)  
-7. Once the flasher detects the device, click **Select**  
-8. Choose **Customize**  
-9. Upload the downloaded combined firmware file  
+8. Once the flasher detects the device, click **Select**  
+9. Choose **Customize**  
+10. Upload the downloaded combined firmware file  
 
 When flashing completes, the Dongle-M will reboot automatically.
 
