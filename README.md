@@ -1,89 +1,275 @@
-# ESP Thread Border Router SDK
+# ESP-IDF OpenThread Border Router on Sonoff Dongle-M
 
-ESP-THREAD-BR is the official Espressif Thread Border Router SDK. It supports all fundamental network features to build a [Thread Border Router](https://openthread.io/guides/border-router) (BR) and integrates rich product level features for quick productization.
+> ⚠️ **IMPORTANT – PROOF OF CONCEPT ONLY** ⚠️  
+> This project is **NOT production-ready**.
+>
+> - This is a **proof of concept port** of Espressif’s ESP-IDF OpenThread Border Router to the Sonoff Dongle-M.
+> - It is **relatively untested**, may be **unstable**, and **may break at any time**.
+> - It is **not actively maintained**.
+> - There are **no guarantees** of correctness, reliability, security, or long-term support.
+>
+> This repository exists to **prove feasibility** and to provide a starting point for others who *do* have the time and interest to take this further.
 
-# Software Components
+---
 
-![esp_br_solution](docs/images/esp-thread-border-router-solution.png)
+## Upstream project
 
-The SDK is built on top of [ESP-IDF](https://github.com/espressif/esp-idf) and [OpenThread](https://github.com/openthread/openthread). The BR implementation is provided as pre-built library in ESP-IDF.
+This work is a **port / adaptation** of Espressif’s official ESP-IDF OpenThread Border Router example:
 
-# Hardware Platforms
+- https://github.com/espressif/esp-idf
 
-## Wi-Fi based Thread Border Router
+Specifically based on the **Basic OpenThread Border Router example** provided by Espressif.
 
-The Wi-Fi based ESP Thread BR consists of two SoCs:
+All credit for the underlying OpenThread / ESP-IDF implementation belongs to Espressif.
 
-* An ESP32 series Wi-Fi SoC (ESP32, ESP32-C, ESP32-S, etc) loaded with ESP Thread BR and OpenThread Stack.
-* An ESP32-H 802.15.4 SoC loaded with OpenThread RCP.
+---
 
-### ESP Thread Border Router Board
+## Overview
 
-The ESP Thread border router board provides an integrated module of an ESP32-S3 SoC and an ESP32-H2 RCP.
+This firmware allows the **ESP32 inside the Sonoff Dongle-M** to run an **OpenThread Border Router (OTBR)**, communicating with the onboard **EFR32MG24** running Thread RCP firmware.
 
-![br_dev_kit](docs/images/esp-thread-border-router-board.png)
+The EFR32MG24 continues to act purely as a **Thread Radio Co-Processor (RCP)**. The ESP32 handles:
 
-The two SoCs are connected with following interfaces:
-* UART and SPI for serial communication
-* RESET and BOOT pins for RCP Update
-* 3-Wires PTA for RF coexistence
+- OpenThread Border Router services inc. NAT64
+- Web UI for Thread dataset management
+- Ethernet / Wi-Fi networking
+- Integration with Home Assistant
 
-### Standalone Modules
+---
 
-The SDK also supports manually connecting an ESP32-H2 RCP to an ESP32 series Wi-Fi SoC.
+## Prerequisites (Sonoff stock setup)
 
-For standalone modules, we recommend the [ot_br](https://github.com/espressif/esp-idf/tree/master/examples/openthread/ot_br) example in esp-idf as a quick start.
+Before flashing this firmware, the **standard Sonoff Dongle-M setup must be completed**.
 
-Communication between RCP and SoC can be achieved using either one out of two supported serial communication protocols: UART or SPI. 
+### Step 1 – Initial Dongle-M setup
 
-#### Connect an ESP32-H2 RCP to an ESP32 series Wi-Fi SoC using UART:
-ESP32 pin           | ESP32-H2 pin
---------------------|-------------
-  GND               |     G
-  GPIO17 (UART RX)  |     TX
-  GPIO18 (UART TX)  |     RX
-  GPIO7             |     RST
-  GPIO8             |     GPIO9 (BOOT)
+1. Power up the Dongle-M  
+2. Join the temporary AP it creates  
+3. Set a password  
+4. Re-join the secure AP using the new password  
+5. Configure Wi-Fi credentials  
+6. Find the Dongle-M IP address on your network  
+7. Open the IP address in a web browser  
 
-#### Connect an ESP32-H2 RCP to an ESP32 series Wi-Fi SoC using SPI:
-ESP32 pin           | ESP32-H2 pin
---------------------|-------------
-  GND               |     G
-  GPIO7             |     RST
-  GPIO8  (SPI INTR) |     GPIO9 (BOOT)
-  GPIO10 (SPI CS)   |     GPIO2
-  GPIO11 (SPI MOSI) |     GPIO3
-  GPIO12 (SPI CLK)  |     GPIO0
-  GPIO13 (SPI MISO) |     GPIO1
+### Step 2 – Enable Thread RCP mode
 
-Note that:
-1. Please update the GPIO pin configuration (`radio_uart_config`) in `esp_ot_config.h` for both the ot_rcp and ot_br examples to accurately reflect the GPIO connections between the Wi-Fi and 802.15.4 SoCs.
+1. Log in to the Sonoff web UI using the password you set  
+2. Go to **EFR32MG24 → Operation Mode**  
+3. Enable **Thread RCP Mode**
 
-2. The configure `ESP_CONSOLE_USB_SERIAL_JTAG` is enabled by default, please connect the USB port of the ESP32 series Wi-Fi SoC to host.
+This step flashes the **EFR32MG24** with the required Thread RCP firmware.
 
-## Ethernet based Thread Border Router
+---
 
-Similar to the previous Wi-Fi based Thread BR setup, but a device with Ethernet interface is required, such as [ESP32-Ethernet-Kit](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/hw-reference/esp32/get-started-ethernet-kit.html).
+## Flashing this firmware
 
-# Provided Features
+There are **two supported methods**.
 
-These features are currently provided by the SDK:
+---
 
-* **Bi-directional IPv6 Connectivity**: The devices on the backbone link (typically Wi-Fi or Ethernet) and the Thread network can reach each other.
-* **Service Discovery Delegate**: The devices on the Thread network can find the mDNS services on the backbone link.
-* **Service Registration Server**: The devices on the Thread network can register services to the BR for devices on the backbone link to discover.
-* **Multicast Forwarding**: The devices joining the same multicast group on the backbone link and the Thread network can be reached with one single multicast.
-* **NAT64**: The devices can access the IPv4 Internet via the BR.
-* **Credential Sharing**: The BR could safely share administrative access and allow extracting the network credentials of the network.
-* **TREL**: It enables Thread devices to communicate directly over IPv6-based links other than IEEE 802.15.4, including Wi-Fi and Ethernet.
-* **RCP Update**: The built BR image will contain an updatable RCP image and can automatically update the RCP on version mismatch or RCP failure.
-* **Web GUI**: The BR will enable a web server and provide some practical functions including Thread network discovery, network formation, status query and topology monitor.
-* **RF Coexistence**: The BR supports optional external coexistence, a feature that enhances the transmission performance when there are channel conflicts between the Wi-Fi and Thread networks.
+## Method 1 – Flashing the pre-compiled firmware (recommended)
 
-# Resources
+### Steps
 
-* Documentation for the latest version: https://docs.espressif.com/projects/esp-thread-br/. This documentation is built from the [docs directory](docs) of this repository.
+3. Download the **combined firmware binary** from this repository’s Releases  
+4. Plug the Dongle-M into your computer via USB  
+5. Open the Sonoff Dongle Flasher:  
+   https://dongle.sonoff.tech/sonoff-dongle-flasher/  
+6. Click **Connect** and select the correct serial port for the Dongle-M  
+   (port selection may be requested twice – this is normal)  
+7. Once the flasher detects the device, click **Select**  
+8. Choose **Customize**  
+9. Upload the downloaded combined firmware file  
 
-* [Check the Issues section on github](https://github.com/espressif/esp-thread-br/issues) if you find a bug or have a feature request. Please check existing Issues before opening a new one.
+When flashing completes, the Dongle-M will reboot automatically.
 
-* If you're interested in contributing to ESP-THREAD-BR, please check the [Contributions Guide](https://docs.espressif.com/projects/esp-idf/en/latest/contribute/index.html).
+> ℹ️ **Note:** The Sonoff **Web UI firmware update page will NOT accept this firmware**.  
+> You must use a raw flasher such as the Sonoff Dongle Flasher or `esptool`.
+
+---
+
+## Method 2 – Flashing from source using ESP-IDF
+
+### Requirements
+
+- ESP-IDF **v5.5.2**
+
+### Steps
+
+3. Clone this repository:
+
+   ```bash
+   git clone https://github.com/Scoobler/esp-thread-br-sonoff-donglem
+   ```
+
+4. Open an **ESP-IDF command prompt**
+5. Change into the example directory:
+
+   ```bash
+   cd examples/basic_thread_border_router
+   ```
+
+6. Flash the firmware:
+
+   ```bash
+   idf.py erase-flash build flash
+   ```
+
+---
+
+## Boot & network behaviour
+
+On boot, the firmware attempts network connectivity in the following order:
+
+1. **Ethernet**  
+   - If a valid IP address is obtained, Ethernet is used
+
+2. **Wi-Fi (saved credentials)**  
+   - If credentials exist and connection succeeds, Wi-Fi is used
+
+3. **Wi-Fi AP mode (no credentials)**  
+   - If no credentials are stored, the device starts an AP for configuration
+
+4. **Wi-Fi retry & recovery**
+   - If credentials exist but Wi-Fi fails:
+     - The device reboots and retries
+     - After **5 failed boots**, AP mode starts
+     - AP remains active for **5 minutes**
+     - If no new credentials are entered:
+       - Device reboots and retries Wi-Fi
+       - Cycle repeats
+
+---
+
+## LED status indicators
+
+### Boot
+
+- Quick **Red → Green → Blue** flash sequence
+
+### Interface connection
+
+- **Blue** – Connected via Ethernet  
+- **Orange** – Connected via Wi-Fi  
+- **Purple** – AP mode active  
+
+### Thread state
+
+- **Green flashing** – Thread network running  
+- **Red flashing** – Thread network not running  
+
+---
+
+## Web UI – OpenThread management
+
+Once connected via Ethernet or Wi-Fi:
+
+- Open the device IP address in a browser  
+  (when using AP mode, an mDNS URL is shown and can be copied instead)
+
+The OpenThread web interface allows:
+
+- Viewing and editing the Thread dataset
+- Copying / restoring the Thread TLV (dataset backup)
+- Viewing network properties
+- Viewing Thread network topology
+
+---
+
+## Home Assistant setup
+
+1. Add the **OpenThread Border Router** integration  
+   - URL **must include** `http://`:
+
+     ```text
+     http://<dongle-ip-address>
+     ```
+
+2. Add the **Thread** integration  
+   - The Dongle-M should appear as an available OTBR  
+   - Set it as the **preferred Thread network** if desired  
+
+3. (Optional) Mobile credential sync  
+   - In the Home Assistant Companion App:
+     - Open **Thread** integration
+     - Click **Configure**
+     - Send Thread credentials to the phone
+
+---
+
+## Reverse-engineered hardware details
+
+### RGB LED (common anode)
+
+- GPIO04 – Red  
+- GPIO02 – Blue  
+- GPIO14 – Green  
+
+### UART connection to EFR32MG24 (UART1)
+
+- GPIO13 – RX  
+- GPIO17 – TX  
+- Baud rate: **115200**  
+- Data bits: **8**  
+- Stop bits: **1**  
+- Parity: **None**  
+- Flow control: **None**
+
+### EFR32MG24 bootloader access
+
+The EFR32MG24 can be placed into **Silicon Labs Gecko bootloader mode** by:
+
+- Holding **GPIO15** (mutes RCP)
+- Pulsing **GPIO12**
+
+### Ethernet
+
+- Ethernet PHY: **IP101GA**
+- Connected using **default ESP32 Ethernet GPIOs**
+
+---
+
+## Possible next steps / future work
+
+This proof of concept required several **hard-coded changes** within this repository to support the Sonoff Dongle-M hardware, most notably:
+
+- Web server configuration changes
+- Raw Ethernet and Wi-Fi connection handling specific to the Dongle-M
+- Hardware-specific assumptions that are not exposed via ESP-IDF configuration options
+
+Ideally, these changes would be refactored into **configurable code paths** and exposed through **ESP-IDF `menuconfig` options**, rather than being hard coded. This would allow:
+
+- Cleaner separation between hardware-specific and generic OTBR logic
+- Easier maintenance and experimentation
+- Potential contribution back into Espressif’s standard OpenThread Border Router example
+
+Additional future work would include:
+
+- Validation testing across a wider range of network conditions
+- Long-term stability and reliability testing
+- Real-world usability testing with Home Assistant and mixed Thread device ecosystems
+- Improve the WebUI for use on mobile browsers - currently this is very poor!
+- General code cleanup and documentation improvements
+
+These steps are **outside the scope of this proof of concept**, but are listed here to provide a possible direction for anyone wishing to take this further.
+
+## Final notes
+
+- This project exists to **prove that the Sonoff Dongle-M can function as a full OTBR host**
+- It is **not intended for end-users**
+- It is **not production-safe**
+- Use entirely **at your own risk**
+
+If you want a polished, supported OTBR experience today, use a maintained OTBR solution.
+
+If you want to experiment, learn, and extend — welcome aboard.
+
+---
+
+## ☕ Support
+
+If you found this project useful or learned something from it and would like to say thanks, you can support me here:
+
+👉 https://buymeacoffee.com/scoobler
+
+Completely optional, but always appreciated ❤️
