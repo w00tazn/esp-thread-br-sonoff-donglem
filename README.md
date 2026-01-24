@@ -254,6 +254,9 @@ Additional future work would include:
 - Long-term stability and reliability testing
 - Real-world usability testing with Home Assistant and mixed Thread device ecosystems
 - General code cleanup and documentation improvements
+- Compile a Thread RCP firmware with rx-on-when-idle to improve battery life of sleepy end devices
+  - Compile the ERF32MG24 Thread RCP firmware for autoflashing by the Open Thread Border Router Firmware
+- Potentially look at allowing OTA updates 
 
 These steps are **outside the scope of this proof of concept**, but are listed here to provide a possible direction for anyone wishing to take this further.
 
