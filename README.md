@@ -69,6 +69,9 @@ This step flashes the **EFR32MG24** with the required Thread RCP firmware.
 
 There are **two supported methods**.
 
+> ℹ️ **Note:** After flashing this firmware, you can use the Sonoff Dongle Flasher to
+> return it back to the Sonoff default: https://dongle.sonoff.tech/sonoff-dongle-flasher/
+
 ---
 
 ## Method 1 – Flashing the pre-compiled firmware (recommended)
