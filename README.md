@@ -125,6 +125,24 @@ When flashing completes, the Dongle-M will reboot automatically.
 
 ---
 
+## Once Flashing is complete
+
+Depending on how you want to use the Dongle-M (Ethernet vs Wi-Fi)
+
+### Wi-Fi:
+
+1. Search for and join the Wi-Fi AP - It'll be something like ESP-ThreadRouterXXXX
+2. Wait for the CaptivePortal to show and select the Wi-Fi network to join and enter the passcode
+3. Either copy the device URL (mDNS) or find the device IP in your router when it has joined the Wi-Fi
+4. Re-join your Wi-Fi and use a browser to visit the WebUI where you can setup the Thread Network Details
+
+#### Ethernet:
+
+1. Connect an Ethernet cable
+2. Find the assigned IP address in your router
+3. Use a browser to visit the WebUI where you can setup the Thread Network Details
+
+---
 ## Boot & network behaviour
 
 On boot, the firmware attempts network connectivity in the following order:
