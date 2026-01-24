@@ -125,22 +125,19 @@ When flashing completes, the Dongle-M will reboot automatically.
 
 ---
 
-## Once Flashing is complete
+## Web UI – OpenThread management
 
-Depending on how you want to use the Dongle-M (Ethernet vs Wi-Fi)
+Once connected via Ethernet or Wi-Fi:
 
-### Wi-Fi:
+- Open the device IP address in a browser  
+  (when using AP mode, an mDNS URL is shown and can be copied instead)
 
-1. Search for and join the Wi-Fi AP - It'll be something like ESP-ThreadRouterXXXX
-2. Wait for the CaptivePortal to show and select the Wi-Fi network to join and enter the passcode
-3. Either copy the device URL (mDNS) or find the device IP in your router when it has joined the Wi-Fi
-4. Re-join your Wi-Fi and use a browser to visit the WebUI where you can setup the Thread Network Details
+The OpenThread web interface allows:
 
-#### Ethernet:
-
-1. Connect an Ethernet cable
-2. Find the assigned IP address in your router
-3. Use a browser to visit the WebUI where you can setup the Thread Network Details
+- Viewing and editing the Thread dataset
+- Copying / restoring the Thread TLV (dataset backup)
+- Viewing network properties
+- Viewing Thread network topology
 
 ---
 ## Boot & network behaviour
@@ -183,22 +180,6 @@ On boot, the firmware attempts network connectivity in the following order:
 
 - **Green flashing** – Thread network running  
 - **Red flashing** – Thread network not running  
-
----
-
-## Web UI – OpenThread management
-
-Once connected via Ethernet or Wi-Fi:
-
-- Open the device IP address in a browser  
-  (when using AP mode, an mDNS URL is shown and can be copied instead)
-
-The OpenThread web interface allows:
-
-- Viewing and editing the Thread dataset
-- Copying / restoring the Thread TLV (dataset backup)
-- Viewing network properties
-- Viewing Thread network topology
 
 ---
 
