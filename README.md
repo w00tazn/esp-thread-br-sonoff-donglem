@@ -114,7 +114,7 @@ When flashing completes, the Dongle-M will reboot automatically.
 3. Change into the example directory:
 
    ```bash
-   cd examples/basic_thread_border_router
+   cd esp-thread-br-sonoff-donglem/examples/basic_thread_border_router
    ```
 
 4. Flash the firmware:
