@@ -130,7 +130,7 @@ When flashing completes, the Dongle-M will reboot automatically.
 Once connected via Ethernet or Wi-Fi:
 
 - Open the device IP address in a browser  
-  (when using AP mode, an mDNS URL is shown and can be copied instead)
+  (when using AP mode (ESP-ThreadBR-XXXX), an mDNS URL is shown and can be copied instead)
 
 The OpenThread web interface allows:
 
