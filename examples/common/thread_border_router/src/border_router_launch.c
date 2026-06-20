@@ -649,7 +649,7 @@ backbone_ready:
         uint8_t mac[6];
         if (esp_read_mac(mac, ESP_MAC_BASE) == ESP_OK) {
             char network_name[OT_NETWORK_NAME_MAX_SIZE + 1];
-            snprintf(network_name, sizeof(network_name), "DONGLEM-OTBR-%02X%02X", mac[4], mac[5]);
+            snprintf(network_name, sizeof(network_name), "DONGLEM-%02X%02X", mac[4], mac[5]);
             memcpy(new_dataset.mNetworkName.m8, network_name, strlen(network_name) + 1);
             new_dataset.mComponents.mIsNetworkNamePresent = true;
         }
