@@ -180,8 +180,8 @@
             color: #dc3545;
             margin-left: 10px;
         }
-				
-		.overlay {
+
+        .overlay {
             position: fixed;
             inset: 0;
             background: rgba(0, 0, 0, 0.6);
@@ -256,8 +256,8 @@
             line-height: 1.4;
             text-align: center;
         }
-
-
+    
+    
     </style>
 </head>
 
@@ -275,7 +275,7 @@
                 <input type="password" id="password" name="password" autocomplete="off">
             </div>
             <button type="submit" id="submitBtn">Save Wi-Fi Configuration</button>
-			<div id="message" class="message"></div>
+            <div id="message" class="message"></div>
         </form>
         <div class="info">
             The device will connect to the configured Wi-Fi network after saving.
@@ -289,8 +289,14 @@
                 <div style="padding: 20px; text-align: center; color: #666;">Click "Scan" to search for networks</div>
             </div>
         </div>
+        <div class="skip-section">
+            <button type="button" class="btn btn-secondary" onclick="skipWifiConfig()"
+                style="margin-top: 10px; background-color: #6c757d;">
+                Skip & Use Ethernet
+            </button>
+        </div>
     </div>
-	<div id="successOverlay" class="overlay">
+    <div id="successOverlay" class="overlay">
         <div class="modal">
             <h3>Wi-Fi saved</h3>
 
@@ -352,12 +358,12 @@
                 const data = await response.json();
 
                 if (data.success) {
-					showMessage('Configuration saved! Device is connecting to Wi-Fi...', 'success');
-					submitBtn.textContent = 'Saved';
-					submitBtn.disabled = true;
+                    showMessage('Configuration saved! Device is connecting to Wi-Fi...', 'success');
+                    submitBtn.textContent = 'Saved';
+                    submitBtn.disabled = true;
 
-					showSuccessOverlay(data);
-				} else {
+                    showSuccessOverlay(data);
+                } else {
                     showMessage('Error: ' + (data.error || 'Failed to save configuration'), 'error');
                     submitBtn.disabled = false;
                     submitBtn.textContent = 'Save Wi-Fi Configuration';
@@ -375,8 +381,8 @@
             messageDiv.className = 'message ' + type;
             messageDiv.style.display = 'block';
         }
-		
-		function copyTextToClipboard(text) {
+
+        function copyTextToClipboard(text) {
             // Works on most captive portal webviews; falls back if clipboard API blocked
             if (navigator.clipboard && navigator.clipboard.writeText) {
                 return navigator.clipboard.writeText(text);
@@ -496,6 +502,70 @@
 
             scanBtn.disabled = false;
             scanBtn.textContent = 'Scan';
+        }
+
+        async function skipWifiConfig() {
+            const submitBtn = document.getElementById('submitBtn');
+            const scanBtn = document.getElementById('scanBtn');
+            // Select the skip button using its container class since it doesn't have an ID
+            const skipBtn = document.querySelector('.skip-section button');
+
+            // 1. Disable the UI to prevent multiple clicks or form submissions
+            submitBtn.disabled = true;
+            scanBtn.disabled = true;
+            if (skipBtn) {
+                skipBtn.disabled = true;
+                skipBtn.textContent = 'Skipping...';
+            }
+
+            // 2. Show the initial status using your existing message banner
+            showMessage('Skipping Wi-Fi... checking Ethernet...', 'success');
+
+            try {
+                // 3. Send the magic string to the native endpoint
+                const response = await fetch('/submit', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        ssid: '__SKIP__',
+                        password: ''
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showMessage('Bypassing Wi-Fi! Attempting Ethernet boot...', 'success');
+
+                    // Override the default overlay message so it makes sense for an Ethernet connection
+                    data.message = "Wi-Fi setup skipped. Booting via Ethernet.";
+
+                    // Trigger your existing overlay to give the user the mDNS address to copy
+                    showSuccessOverlay(data);
+                } else {
+                    showMessage('Error: ' + (data.error || 'Failed to send skip command'), 'error');
+
+                    // Re-enable UI on backend rejection
+                    submitBtn.disabled = false;
+                    scanBtn.disabled = false;
+                    if (skipBtn) {
+                        skipBtn.disabled = false;
+                        skipBtn.textContent = 'Skip & Use Ethernet';
+                    }
+                }
+            } catch (error) {
+                showMessage('Error: ' + error.message, 'error');
+
+                // Re-enable UI on network error
+                submitBtn.disabled = false;
+                scanBtn.disabled = false;
+                if (skipBtn) {
+                    skipBtn.disabled = false;
+                    skipBtn.textContent = 'Skip & Use Ethernet';
+                }
+            }
         }
 
         // Auto-scan on page load

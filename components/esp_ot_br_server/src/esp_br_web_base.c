@@ -22,6 +22,7 @@
 #include "openthread/dataset.h"
 #include "openthread/error.h"
 #include "openthread/platform/radio.h"
+#include "esp_mac.h"
 
 #define BASE_TAG "web_base"
 
@@ -143,6 +144,15 @@ cJSON *otbr_properties_struct_convert2_json(openthread_properties_t *properties)
 
     /* ESP-IDF version */
     cJSON_AddStringToObject(root, "IDF:Version", esp_get_idf_version());
+
+    /* Add mDNS hostname */
+    uint8_t mac[6];
+    if (esp_read_mac(mac, ESP_MAC_BASE) == ESP_OK) {
+        snprintf(format, sizeof(format), "donglem-otbr-%02x%02x.local", mac[4], mac[5]);
+        cJSON_AddStringToObject(root, "System:mDNS", format);
+    } else {
+        cJSON_AddStringToObject(root, "System:mDNS", "donglem-otbr.local");
+    }
 
     /* App / project info */
     const esp_app_desc_t *app_desc = esp_app_get_description();

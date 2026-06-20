@@ -58,6 +58,10 @@
             <div class="card section">
                 <div class="card-header">System</div>
                 <div class="info-row">
+                    <span class="info-label">mDNS URL</span>
+                    <span class="info-value"><a href="#" id="p-mdns" target="_blank" style="color: var(--primary); text-decoration: underline;">-</a></span>
+                </div>
+                <div class="info-row">
                     <span class="info-label">Uptime</span>
                     <span class="info-value" id="p-uptime">-</span>
                 </div>
@@ -107,6 +111,19 @@ function renderProperties(data) {
     document.getElementById('p-panid').textContent = r['Network:PANID'] || '-';
     document.getElementById('p-xpanid').textContent = r['Network:XPANID'] || '-';
     document.getElementById('p-partid').textContent = r['Network:PartitionID'] || '-';
+    
+    var mdnsVal = r['System:mDNS'] || '-';
+    var mdnsLink = document.getElementById('p-mdns');
+    if (mdnsLink) {
+        if (mdnsVal !== '-') {
+            mdnsLink.textContent = 'http://' + mdnsVal;
+            mdnsLink.href = 'http://' + mdnsVal;
+        } else {
+            mdnsLink.textContent = '-';
+            mdnsLink.removeAttribute('href');
+        }
+    }
+
     document.getElementById('p-uptime').textContent = r['System:Uptime'] || '-';
     document.getElementById('p-heap').textContent = r['System:FreeHeap'] || '-';
     document.getElementById('p-otver').textContent = r['OpenThread:Version'] || '-';

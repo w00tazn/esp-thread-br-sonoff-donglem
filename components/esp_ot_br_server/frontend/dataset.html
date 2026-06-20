@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Thread Border Router - Dataset</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="icon" href="/favicon.ico">
+</head>
+
+<body>
+    <nav class="nav" id="nav"></nav>
+
+    <div class="container">
+        <h2 class="section-title">Network Credentials</h2>
+
+        <div class="grid grid-1 section">
+            <div class="card">
+                <div class="card-header">Active Operational Dataset (TLV)</div>
+                <div class="info-row" style="flex-direction: column; align-items: flex-start; gap: 8px;">
+                    <span class="info-label">Current Hex String</span>
+                    <div style="background-color: var(--bg-color); padding: 10px; border-radius: 4px; width: 100%; word-break: break-all; font-family: 'Courier New', Consolas, monospace; font-size: 13px;"
+                        id="current-tlv">
+                        Loading...
+                    </div>
+                    <div class="form-hint">Copy this string to commission your self-hosted Matter controller or Home
+                        Assistant.</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">Migrate Network</div>
+                <div style="margin-top: 10px;">
+                    <label class="info-label" style="display: block; margin-bottom: 8px;">Upload New TLV</label>
+                    <input class="form-input" id="tlv-upload-input" type="text" placeholder="Paste TLV Hex String here">
+                    <div class="form-hint" style="margin-bottom: 16px;">Warning: Uploading a new dataset will cause the
+                        router to drop its current network and attach to the new mesh.</div>
+
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <button type="button" class="btn btn-primary" onclick="uploadTlv()" id="uploadBtn">Update
+                            Dataset</button>
+                        <span id="tlv-status" style="font-size:13px; font-weight: bold;"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">Copyright &copy; 2026 Espressif Systems. All rights reserved.</div>
+
+    <script src="/static/api.js"></script>
+    <script>
+        /* Disable page inputs if Thread network is not initialized */
+        checkThreadState(function (role, connected) {
+            if (!connected) {
+                document.getElementById('uploadBtn').disabled = true;
+                document.getElementById('tlv-upload-input').disabled = true;
+            }
+        });
+
+        /* ──── TLV Auto-Fetch Logic ──── */
+        function fetchDatasetTlv() {
+            // Call the native OpenThread endpoint
+            fetch('/node/dataset/active')
+                .then(response => response.text())
+                .then(text => {
+                    // OpenThread returns the dataset text directly
+                    document.getElementById('current-tlv').textContent = text;
+                })
+                .catch(err => console.error("Failed to fetch TLV", err));
+        }
+
+        /* ──── TLV Upload Logic ──── */
+        function uploadTlv() {
+            var tlvInput = document.getElementById('tlv-upload-input').value.trim();
+            var status = document.getElementById('tlv-status');
+
+            if (!tlvInput) {
+                showToast('Please enter a valid TLV string', 'error');
+                return;
+            }
+
+            status.textContent = 'Updating...';
+
+            // PUT the new string to the native OpenThread endpoint
+            fetch('/node/dataset/active', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'text/plain'
+                },
+                body: tlvInput
+            }).then(response => {
+                if (response.ok) {
+                    status.textContent = 'Success!';
+                    showToast('Dataset updated successfully', 'success');
+                    document.getElementById('tlv-upload-input').value = '';
+                    fetchDatasetTlv();
+                } else {
+                    status.textContent = 'Failed';
+                    showToast('Failed to upload TLV', 'error');
+                }
+            }).catch(err => {
+                status.textContent = 'Connection Error';
+            });
+        }
+
+        /* Initialize Auto-fetch */
+        fetchDatasetTlv();
+        setInterval(fetchDatasetTlv, 5000); // Poll every 5 seconds
+    </script>
+</body>
+
+</html>

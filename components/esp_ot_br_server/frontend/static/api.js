@@ -135,6 +135,7 @@ var pages = [
     label : 'Management',
     children : [
       {href : '/network.html', label : 'Network'},
+      {href : '/dataset.html', label : 'Dataset'},
       {href : '/commission.html', label : 'Commissioner'},
       {href : '/addresses.html', label : 'Addresses'},
       {href : '/tools.html', label : 'Tools'}

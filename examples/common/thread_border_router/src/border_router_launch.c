@@ -70,7 +70,7 @@
 
 /* ----------------------- Policy tuning knobs ---------------------------- */
 
-#define ETH_WAIT_MS                 (10000)   // wait up to 10s for Ethernet IP
+#define ETH_WAIT_MS                 (30000)   // wait up to 30s for Ethernet IP
 #define WIFI_WAIT_MS                (12000)   // wait up to 12s for Wi-Fi IP
 #define SOFTAP_WINDOW_MS            (180000)  // 3 minutes SoftAP window
 #define FAIL_COUNT_TRIGGER_SOFTAP   (5)       // after 5 failed boots, open SoftAP
@@ -481,6 +481,24 @@ static void ot_br_init(void *ctx)
         if (!have_creds) {
 #if CONFIG_OPENTHREAD_BR_SOFTAP_SETUP
             bool provisioned = br_softap_provision_window(SOFTAP_WINDOW_MS, ssid, sizeof(ssid), pass, sizeof(pass));
+            
+            /* NEW LOGIC: Catch the Skip button */
+            if (provisioned && strcmp(ssid, "__SKIP__") == 0) {
+                ESP_LOGI(TAG, "User requested to skip Wi-Fi configuration.");
+                
+                // Double-check that Ethernet actually got an IP in the background
+                EventBits_t bits = xEventGroupGetBits(s_net_ev);
+                if (bits & BIT_ETH_GOT_IP) {
+                    ESP_LOGI(TAG, "Ethernet is active. Bypassing Wi-Fi setup.");
+                    br_nvs_reset_fail_count(); 
+                    goto backbone_ready; // Break out of the state machine!
+                } else {
+                    ESP_LOGE(TAG, "Skipped Wi-Fi, but Ethernet has no IP! Cannot proceed. Rebooting...");
+                    vTaskDelay(pdMS_TO_TICKS(2000));
+                    esp_restart();
+                }
+            }
+            
             if (!provisioned) {
                 /* No creds entered in 3 minutes -> reboot once (self-heal path) */
                 ESP_LOGW(TAG, "No creds entered; rebooting to self-heal...");
@@ -523,6 +541,23 @@ static void ot_br_init(void *ctx)
                 bool provisioned = br_softap_provision_window(SOFTAP_WINDOW_MS,
                                                               new_ssid, sizeof(new_ssid),
                                                               new_pass, sizeof(new_pass));
+
+                /* NEW LOGIC: Catch the Skip button */
+                if (provisioned && strcmp(new_ssid, "__SKIP__") == 0) {
+                    ESP_LOGI(TAG, "User requested to skip Wi-Fi configuration.");
+                    
+                    // Double-check that Ethernet actually got an IP in the background
+                    EventBits_t bits = xEventGroupGetBits(s_net_ev);
+                    if (bits & BIT_ETH_GOT_IP) {
+                        ESP_LOGI(TAG, "Ethernet is active. Bypassing Wi-Fi setup.");
+                        br_nvs_reset_fail_count(); 
+                        goto backbone_ready; // Break out of the state machine!
+                    } else {
+                        ESP_LOGE(TAG, "Skipped Wi-Fi, but Ethernet has no IP! Cannot proceed. Rebooting...");
+                        vTaskDelay(pdMS_TO_TICKS(2000));
+                        esp_restart();
+                    }
+                }
 
                 if (!provisioned) {
                     ESP_LOGW(TAG, "SoftAP window expired; rebooting to self-heal...");
@@ -614,7 +649,7 @@ backbone_ready:
         uint8_t mac[6];
         if (esp_read_mac(mac, ESP_MAC_BASE) == ESP_OK) {
             char network_name[OT_NETWORK_NAME_MAX_SIZE + 1];
-            snprintf(network_name, sizeof(network_name), "ESP-BR-%02X%02X", mac[4], mac[5]);
+            snprintf(network_name, sizeof(network_name), "DONGLEM-OTBR-%02X%02X", mac[4], mac[5]);
             memcpy(new_dataset.mNetworkName.m8, network_name, strlen(network_name) + 1);
             new_dataset.mComponents.mIsNetworkNamePresent = true;
         }
