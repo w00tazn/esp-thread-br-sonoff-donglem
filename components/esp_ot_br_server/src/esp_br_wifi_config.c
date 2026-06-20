@@ -68,6 +68,20 @@ static esp_err_t wifi_config_start_webserver(void);
 static void wifi_config_stop_webserver(void);
 static void wifi_config_wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data);
 
+// Compute mDNS address:
+static void wifi_config_make_mdns_hostname(char *out, size_t out_len)
+{
+    if (!out || out_len == 0) return;
+
+    uint8_t mac[6] = {0};
+    // Use base MAC so it matches your main firmware hostname scheme
+    if (esp_read_mac(mac, ESP_MAC_BASE) == ESP_OK) {
+        snprintf(out, out_len, "donglem-otbr-%02x%02x", mac[4], mac[5]);
+    } else {
+        snprintf(out, out_len, "donglem-otbr");
+    }
+}
+
 // DNS Server implementation
 static esp_err_t wifi_config_dns_server_start(void)
 {
@@ -483,8 +497,32 @@ static esp_err_t wifi_config_submit_handler(httpd_req_t *req)
 
     cJSON_Delete(json);
 
-    httpd_resp_set_type(req, "application/json");
-    httpd_resp_send(req, "{\"success\":true}", HTTPD_RESP_USE_STRLEN);
+    char hostname[32];
+	wifi_config_make_mdns_hostname(hostname, sizeof(hostname));
+
+	cJSON *resp = cJSON_CreateObject();
+	cJSON_AddBoolToObject(resp, "success", true);
+	cJSON_AddStringToObject(resp, "hostname", hostname);
+
+	char mdns_url[80];
+	snprintf(mdns_url, sizeof(mdns_url), "http://%s.local", hostname);
+	cJSON_AddStringToObject(resp, "mdns_url", mdns_url);
+
+	/* We *usually* won’t know the station IP yet at submit time.
+	   But if in future you decide to connect immediately, you can populate this. */
+	cJSON_AddStringToObject(resp, "ip_url", "");
+
+	cJSON_AddStringToObject(resp, "message",
+		"Wi-Fi credentials saved. The dongle will leave this setup Wi-Fi shortly. "
+		"After it connects to your Wi-Fi, open the link shown (mDNS) to continue.");
+
+	char *json_str = cJSON_PrintUnformatted(resp);
+	httpd_resp_set_type(req, "application/json");
+	httpd_resp_send(req, json_str, HTTPD_RESP_USE_STRLEN);
+
+	cJSON_free(json_str);
+	cJSON_Delete(resp);
+
 
     return ESP_OK;
 }

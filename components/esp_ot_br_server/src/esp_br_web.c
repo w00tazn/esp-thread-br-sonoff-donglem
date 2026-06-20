@@ -799,22 +799,28 @@ static esp_err_t esp_otbr_network_form_post_handler(httpd_req_t *req)
     cJSON *request = httpd_request_convert2_json(req, cJSON_Object);
     ESP_RETURN_ON_FALSE(request, ESP_FAIL, WEB_TAG, "Failed to parse the FORM package");
 
-    cJSON *form_log = cJSON_CreateString("Known");
+    cJSON *form_log = cJSON_CreateString("Form request received");
     otError err = handle_openthread_form_network_request(request, form_log);
+
     cJSON *error = cJSON_CreateNumber((double)err);
     cJSON *result = err ? cJSON_CreateString("failed") : cJSON_CreateString("successful");
     cJSON *message = form_log;
     cJSON *response = pack_response(error, result, message);
+
     ESP_GOTO_ON_ERROR(httpd_send_packet(req, response), exit, WEB_TAG, "Failed to response %s", req->uri);
     ESP_GOTO_ON_FALSE(!err, ESP_FAIL, exit, WEB_TAG, "Failed to form Thread network");
+
     ESP_LOGI(WEB_TAG, "<================== Form Thread Network ===================>");
-    ESP_LOGI(WEB_TAG, "Form network successfully"); /* form successfully */
+    ESP_LOGI(WEB_TAG, "Form network successfully");
     ESP_LOGI(WEB_TAG, "<==========================================================>");
+
 exit:
     cJSON_Delete(request);
     cJSON_Delete(response);
+    // NOTE: don't delete form_log separately; it is owned by response->message
     return ret;
 }
+
 
 /**
  * @brief The API provides an entry to add network prefix to Thread node by the @param req.

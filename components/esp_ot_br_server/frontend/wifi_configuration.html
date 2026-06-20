@@ -2,7 +2,7 @@
 <html>
 
 <head>
-    <title>M5Stack Thread Border Router - Wi-Fi Configuration</title>
+    <title>Sonoff Dongle-M Thread Border Router - Wi-Fi Configuration</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
     <style type="text/css">
@@ -180,12 +180,90 @@
             color: #dc3545;
             margin-left: 10px;
         }
+				
+		.overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            padding: 16px;
+        }
+
+        .overlay .modal {
+            background: #fff;
+            border-radius: 10px;
+            width: 100%;
+            max-width: 420px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+            padding: 18px;
+            border: 2px solid #ff8c00;
+        }
+
+        .overlay h3 {
+            margin: 0 0 10px 0;
+            color: #ff8c00;
+            font-size: 16px;
+            text-align: center;
+        }
+
+        .kv {
+            margin-top: 10px;
+        }
+
+        .kv label {
+            margin-bottom: 6px;
+            font-size: 13px;
+        }
+
+        .kv .row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .kv .value {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            background: #fff5e6;
+            word-break: break-all;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 12px;
+        }
+
+        .copy-btn {
+            padding: 10px 12px;
+            width: auto;
+            white-space: nowrap;
+            font-size: 13px;
+        }
+
+        .countdown {
+            margin-top: 12px;
+            text-align: center;
+            color: #555;
+            font-size: 13px;
+        }
+
+        .small-note {
+            margin-top: 10px;
+            color: #666;
+            font-size: 12px;
+            line-height: 1.4;
+            text-align: center;
+        }
+
+
     </style>
 </head>
 
 <body>
     <div class="container">
-        <h1>M5Stack Thread Border Router</h1>
+        <h1>Sonoff Dongle-M Thread Border Router</h1>
         <h2>Wi-Fi Configuration</h2>
         <form id="wifiForm">
             <div class="form-group">
@@ -197,7 +275,7 @@
                 <input type="password" id="password" name="password" autocomplete="off">
             </div>
             <button type="submit" id="submitBtn">Save Wi-Fi Configuration</button>
-            <div id="message" class="message"></div>
+			<div id="message" class="message"></div>
         </form>
         <div class="info">
             The device will connect to the configured Wi-Fi network after saving.
@@ -212,7 +290,35 @@
             </div>
         </div>
     </div>
+	<div id="successOverlay" class="overlay">
+        <div class="modal">
+            <h3>Wi-Fi saved</h3>
 
+            <div id="overlayMsg" class="small-note"></div>
+
+            <div class="kv">
+                <label>mDNS hostname (copy this):</label>
+                <div class="row">
+                    <div id="hostValue" class="value"></div>
+                    <button type="button" class="copy-btn" id="copyHostBtn">Copy</button>
+                </div>
+            </div>
+
+            <div class="kv">
+                <label>Web address (copy this):</label>
+                <div class="row">
+                    <div id="urlValue" class="value"></div>
+                    <button type="button" class="copy-btn" id="copyUrlBtn">Copy</button>
+                </div>
+            </div>
+
+            <div id="overlayCountdown" class="countdown"></div>
+
+            <div class="small-note">
+                After the dongle joins your Wi-Fi, re-join you Wi-Fi and paste the address into your browser.
+            </div>
+        </div>
+    </div>
     <script>
         document.getElementById('wifiForm').addEventListener('submit', async function (e) {
             e.preventDefault();
@@ -246,9 +352,12 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    showMessage('Configuration saved! Device is connecting to Wi-Fi...', 'success');
-                    submitBtn.textContent = 'Connecting...';
-                } else {
+					showMessage('Configuration saved! Device is connecting to Wi-Fi...', 'success');
+					submitBtn.textContent = 'Saved';
+					submitBtn.disabled = true;
+
+					showSuccessOverlay(data);
+				} else {
                     showMessage('Error: ' + (data.error || 'Failed to save configuration'), 'error');
                     submitBtn.disabled = false;
                     submitBtn.textContent = 'Save Wi-Fi Configuration';
@@ -266,6 +375,67 @@
             messageDiv.className = 'message ' + type;
             messageDiv.style.display = 'block';
         }
+		
+		function copyTextToClipboard(text) {
+            // Works on most captive portal webviews; falls back if clipboard API blocked
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                return navigator.clipboard.writeText(text);
+            }
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            document.body.appendChild(ta);
+            ta.select();
+            try { document.execCommand('copy'); } catch (e) { /* ignore */ }
+            document.body.removeChild(ta);
+            return Promise.resolve();
+        }
+
+        function showSuccessOverlay(data) {
+            const overlay = document.getElementById('successOverlay');
+            const overlayMsg = document.getElementById('overlayMsg');
+            const hostValue = document.getElementById('hostValue');
+            const urlValue = document.getElementById('urlValue');
+            const copyHostBtn = document.getElementById('copyHostBtn');
+            const copyUrlBtn = document.getElementById('copyUrlBtn');
+            const countdownEl = document.getElementById('overlayCountdown');
+
+            const hostname = data.hostname ? (data.hostname + ".local") : "";
+            const mdnsUrl = data.mdns_url || (hostname ? ("http://" + hostname) : "");
+
+            overlayMsg.textContent = data.message || "Wi-Fi credentials saved.";
+
+            hostValue.textContent = hostname || "(unknown)";
+            urlValue.textContent = mdnsUrl || "(unknown)";
+
+            copyHostBtn.onclick = async () => {
+                await copyTextToClipboard(hostValue.textContent);
+                copyHostBtn.textContent = "Copied!";
+                setTimeout(() => (copyHostBtn.textContent = "Copy"), 1200);
+            };
+
+            copyUrlBtn.onclick = async () => {
+                await copyTextToClipboard(urlValue.textContent);
+                copyUrlBtn.textContent = "Copied!";
+                setTimeout(() => (copyUrlBtn.textContent = "Copy"), 1200);
+            };
+
+            // Countdown (best-effort UX). We can't guarantee when SoftAP will drop.
+            let secs = 20;
+            countdownEl.textContent = `This setup page may close in ~${secs}s…`;
+            const timer = setInterval(() => {
+                secs--;
+                if (secs <= 0) {
+                    clearInterval(timer);
+                    countdownEl.textContent = `If the page closes, you’ve already copied what you need.`;
+                } else {
+                    countdownEl.textContent = `This setup page may close in ~${secs}s…`;
+                }
+            }, 1000);
+
+            overlay.style.display = "flex";
+        }
+
+
 
         // Scan for Wi-Fi networks
         async function scanNetworks() {
